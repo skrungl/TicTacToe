@@ -8,9 +8,12 @@
             Insert at top left:     0, 0
             Insert at bottom right: 2, 2
     Any weird inputs will be ignored and you will need to re-enter the position you wish to mark.
-    Input is split by the comma and both resulting strings are parsed and matched to a number, inserting additional characters will not work!
+    Input is split by the comma and both resulting strings are parsed and matched to a number, 
+    inserting additional characters will not work!
 ### Win:
-    If you somehow haven't played Tic-Tac-Toe before, the objective is to place your mark so they form a line of 3 cells, vertically, horizontally or diagonally.
+    If you somehow haven't played Tic-Tac-Toe before, 
+    the objective is to place your mark so they form a line of 3 cells, 
+    vertically, horizontally or diagonally.
 ### Not Win:
     If all cells are filled and no one has formed a continuous line of 3, both players lose.
 
