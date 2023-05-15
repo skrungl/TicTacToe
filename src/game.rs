@@ -4,6 +4,161 @@ use std::fmt::Display;
 
 use crate::input::*;
 
+pub struct Game {
+    pub clear_screen: bool
+}
+
+impl Game {
+    pub fn run(&self) {
+        use Player::*;
+
+        let mut running = true;
+
+        while running {
+            let mut board = Board {
+                slots: [
+                    [Nobody, Nobody, Nobody],
+                    [Nobody, Nobody, Nobody],
+                    [Nobody, Nobody, Nobody],
+                ],
+            };
+
+            if self.clear_screen {
+                clear_screen();
+            }
+
+            let player_1 = match read_input_prompt("First player choice: ".into()).as_str() {
+                "X" | "x" => X,
+                "O" | "o" => O,
+                _ => {
+                    println!("{}", "Picking random starting player...".yellow());
+                    let mut rng = rand::thread_rng();
+                    rng.gen()
+                }
+            };
+
+            let player_2 = player_1.not();
+
+            println!("Player 1: {}\nPlayer 2: {}", player_1, player_2);
+
+            let mut turn = player_1;
+            let mut turn_count = 0;
+            let mut last_turn_success = false;
+            let mut last_valid_pos: Option<(usize, usize)> = None;
+
+            running = loop {
+
+                // announce which player's turn it is
+                println!(
+                    "{}",
+                    match turn {
+                        Nobody => "it's nobody's turn".red(),
+                        X => "it's X's turn".cyan(),
+                        O => "it's O's turn".cyan(),
+                    }
+                );
+
+                if turn == player_1 {
+                    println!("{}", "Type \"quit\" to quit.".yellow());
+                }
+
+                // draw the board so players can see (only on first turn)
+                if turn_count == 0 {
+                    draw_board(&board);
+                } else if !last_turn_success {
+                    if let Some(p) = last_valid_pos {
+                        draw_board_changes(&board, p)
+                    } else {
+                        draw_board(&board);
+                    }
+                }
+                last_turn_success = false;
+
+                // get input
+                let input = read_input_prompt(match turn {
+                    Nobody => ": ".into(),
+                    X => "X: ".into(),
+                    O => "O: ".into(),
+                });
+
+                if self.clear_screen {
+                    clear_screen();
+                }
+
+                // only allow quitting for player 1
+                if input.to_lowercase() == "quit".to_owned() {
+                    if turn == player_1 {
+                        break false;
+                    } else {
+                        println!("{}", "Only player 1 can prematurely end the game!".red());
+                        continue;
+                    }
+                }
+
+                // try parse valid position
+                let pos: (usize, usize);
+                match parse_board_position(input) {
+                    Ok(p) => pos = p,
+                    Err(err) => {
+                        println!("{}", err.red());
+                        continue; // skips turn swap
+                    }
+                }
+
+                board.slots[pos.1][pos.0] = match board.slots[pos.1][pos.0] {
+                    X => {
+                        println!("{}", "Cannot occupy this space!".red());
+                        continue;
+                    }
+                    O => {
+                        println!("{}", "Cannot occupy this space!".red());
+                        continue;
+                    }
+                    Nobody => {
+                        println!(
+                            "{}",
+                            format!("Placed {} at {:?}", turn.to_string(), pos).purple()
+                        );
+                        last_valid_pos = Some(pos);
+                        turn
+                    }
+                };
+
+                // draw the board so players can see again
+                draw_board_changes(&board, pos);
+
+                match board.check_winner(pos) {
+                    X => {
+                        println!("{}", "X Wins!".green());
+                        break continue_prompt();
+                    }
+                    O => {
+                        println!("{}", "O Wins!".green());
+                        break continue_prompt();
+                    }
+                    Nobody => match board.check_full() {
+                        true => {
+                            println!("{} {}", "Board is full!".cyan(), "NOBODY WINS".red());
+                            break continue_prompt();
+                        }
+                        false => (),
+                    },
+                };
+
+                // swaps player turn
+                turn = match turn {
+                    X => O,
+                    O => X,
+                    Nobody => Nobody,
+                };
+
+                turn_count = turn_count + 1;
+                last_turn_success = true;
+            };
+        }
+    }
+}
+
 pub struct Board {
     pub slots: [[Player; 3]; 3],
 }
@@ -156,143 +311,6 @@ impl Display for Player {
     }
 }
 
-pub fn run() {
-    use Player::*;
-
-    let mut running = true;
-
-    while running {
-        let mut board = Board {
-            slots: [
-                [Nobody, Nobody, Nobody],
-                [Nobody, Nobody, Nobody],
-                [Nobody, Nobody, Nobody],
-            ],
-        };
-
-        let player_1 = match read_input_prompt("First player choice: ".into()).as_str() {
-            "X" | "x" => X,
-            "O" | "o" => O,
-            _ => {
-                println!("{}", "Picking random starting player...".yellow());
-                let mut rng = rand::thread_rng();
-                rng.gen()
-            }
-        };
-
-        let player_2 = player_1.not();
-
-        println!("Player 1: {}\nPlayer 2: {}", player_1, player_2);
-
-        let mut turn = player_1;
-        let mut turn_count = 0;
-        let mut last_turn_success = false;
-        let mut last_valid_pos: Option<(usize, usize)> = None;
-
-        running = loop {
-            // announce which player's turn it is
-            println!(
-                "{}",
-                match turn {
-                    Nobody => "it's nobody's turn".red(),
-                    X => "it's X's turn".cyan(),
-                    O => "it's O's turn".cyan(),
-                }
-            );
-
-            if turn == player_1 {
-                println!("{}", "Type \"quit\" to quit.".yellow());
-            }
-
-            // draw the board so players can see (only on first turn)
-            if turn_count == 0 {
-                draw_board(&board);
-            } else if !last_turn_success {
-                if let Some(p) = last_valid_pos {
-                    draw_board_changes(&board, p)
-                } else {
-                    draw_board(&board);
-                }
-            }
-            last_turn_success = false;
-
-            // get input
-            let input = read_input_prompt(match turn {
-                Nobody => ": ".into(),
-                X => "X: ".into(),
-                O => "O: ".into(),
-            });
-
-            // only allow quitting for player 1
-            if input.to_lowercase() == "quit".to_owned() {
-                if turn == player_1 {
-                    break false;
-                } else {
-                    println!("{}", "Only player 1 can prematurely end the game!".red());
-                    continue;
-                }
-            }
-
-            // try parse valid position
-            let pos: (usize, usize);
-            match parse_board_position(input) {
-                Ok(p) => pos = p,
-                Err(err) => {
-                    println!("{}", err.red());
-                    continue; // skips turn swap
-                }
-            }
-
-            board.slots[pos.1][pos.0] = match board.slots[pos.1][pos.0] {
-                X => {
-                    println!("{}", "Cannot occupy this space!".red());
-                    continue;
-                }
-                O => {
-                    println!("{}", "Cannot occupy this space!".red());
-                    continue;
-                }
-                Nobody => {
-                    println!("{}", format!("Placed {} at {:?}", turn.to_string(), pos).purple());
-                    last_valid_pos = Some(pos);
-                    turn
-                },
-            };
-
-            // draw the board so players can see again
-            draw_board_changes(&board, pos);
-
-            match board.check_winner(pos) {
-                X => {
-                    println!("{}", "X Wins!".green());
-                    break continue_prompt();
-                }
-                O => {
-                    println!("{}", "O Wins!".green());
-                    break continue_prompt();
-                }
-                Nobody => match board.check_full() {
-                    true => {
-                        println!("{} {}", "Board is full!".cyan(), "NOBODY WINS".red());
-                        break continue_prompt();
-                    }
-                    false => (),
-                },
-            };
-
-            // swaps player turn
-            turn = match turn {
-                X => O,
-                O => X,
-                Nobody => Nobody,
-            };
-
-            turn_count = turn_count + 1;
-            last_turn_success = true;
-        };
-    }
-}
-
 fn continue_prompt() -> bool {
     match read_input_prompt("Continue? Y/N\n".green().to_string()).as_str() {
         "Y" | "y" => true,
@@ -308,17 +326,23 @@ fn parse_board_position(input_string: String) -> Result<(usize, usize), String> 
             let x;
             match t.0.trim().parse::<usize>() {
                 Ok(r) => x = r,
-                Err(_) => return Err(format!("Invalid X position!")),
+                Err(_) => return Err(format!("Invalid X position! \"{}\"", t.0)),
             };
             let y;
             match t.1.trim().parse::<usize>() {
                 Ok(r) => y = r,
-                Err(_) => return Err(format!("Invalid Y position!")),
+                Err(_) => return Err(format!("Invalid Y position! \"{}\"", t.1)),
             };
 
             match (x, y) {
                 (0..=2, 0..=2) => {
                     return Ok((x, y));
+                }
+                (3.., ..) => {
+                    return Err(format!("Value outside of range! (X: {})", x));
+                }
+                (.., 3..) => {
+                    return Err(format!("Value outside of range! (Y: {})", y));
                 }
                 _ => {
                     return Err("Value outside of range!".into());
@@ -360,14 +384,14 @@ fn draw_board_changes(board: &Board, pos: (usize, usize)) {
             match x {
                 0 | 1 => {
                     print!("|");
-                },
+                }
                 _ => (),
             };
         }
         match y {
             0 | 1 => {
                 println!("\n=====");
-            },
+            }
             _ => (),
         };
     }
